@@ -10,8 +10,6 @@ from flask_cors import CORS
 from utils import APIException, generate_sitemap
 from admin import setup_admin
 from models import Character, db, User
-#from models import Person
-# from create_character import create_character
 
 
 app = Flask(__name__)
@@ -42,6 +40,14 @@ def handle_hello():
 
     return jsonify(response_body), 200
 
+@app.route('/characters/<int:id>')
+def handle_one_character(id):
+    character = Character.query.get(id)
+    if character is None:
+        return jsonify({
+            "msg": "not found"
+        }), 404
+    return jsonify(character.serialize()), 200
 
 @app.route('/characters', methods=["GET", "POST"])
 def handle_characters():
@@ -115,3 +121,6 @@ def populate_characters():
 if __name__ == '__main__':
     PORT = int(os.environ.get('PORT', 3000))
     app.run(host='0.0.0.0', port=PORT, debug=False)
+
+with app.app_context():
+    from populate_db import populate_db

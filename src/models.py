@@ -1,4 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import inspect
 
 db = SQLAlchemy()
 
@@ -37,18 +38,6 @@ class Item(Base):
     def __repr__(self) -> str:
         return f"{self.id}: {self.name}, {self.nature}"
 
-class Character(Item):
-    id = db.Column(db.Integer, db.ForeignKey('item.id'), primary_key=True)
-    mass = db.Column(db.Numeric(precision=6, scale=2))
-    height = db.Column(db.Numeric(precision=6, scale=2))
-    skin_color = db.Column(db.String(80))
-    eye_color = db.Column(db.String(80))
-    hair_color = db.Column(db.String(80))
-
-    __mapper_args__ = {
-        'polymorphic_identity': 'character'
-    }
-
     def __init__(self, *args, **kwargs): # keyword arguments
         """
             kwargs = {
@@ -57,13 +46,16 @@ class Character(Item):
                 ...
             }
         """
-        for (key, value) in kwargs.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-                # self.key = value
+        for (key, value) in kwargs.items(): #
+            if key in ('created', 'updated'): continue
+            if hasattr(self, key): #
+                attribute_type = getattr(self.__class__, key).type
+                try:
+                    attribute_type.python_type(value)
+                    setattr(self, key, value) #
 
-    def __repr__(self) -> str:
-        return f"{self.id}: {self.name}, {self.nature}, {self.eye_color}"
+                except Exception as error:
+                    print("ignoring key ", key, " with ", value, " for ", attribute_type.python_type, " because ", error.args)
 
     @classmethod
     def create(cls, data):
@@ -76,10 +68,26 @@ class Character(Item):
         db.session.add(instance)
         try:
             db.session.commit()
+            print(f"created: {instance.name}")
             return instance
         except Exception as error:
             db.session.rollback()
             raise Exception(error.args)
+
+class Character(Item):
+    id = db.Column(db.Integer, db.ForeignKey('item.id'), primary_key=True)
+    mass = db.Column(db.Numeric(precision=6, scale=2))
+    height = db.Column(db.Numeric(precision=6, scale=2))
+    skin_color = db.Column(db.String(80))
+    eye_color = db.Column(db.String(80))
+    hair_color = db.Column(db.String(80))
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'character'
+    }
+
+    def __repr__(self) -> str:
+        return f"{self.id}: {self.name}, {self.nature}, {self.eye_color}"
 
     def serialize(self):
         """
@@ -90,14 +98,16 @@ class Character(Item):
             "id": self.id,
             "name": self.name,
             "eye_color": self.eye_color,
-            "height": self.height
+            "height": self.height,
+            "hair_color": self.hair_color,
+            "skin_color": self.skin_color
         }
 
     def shortalize(self):
         return {
             "id": self.id,
             "name": self.name,
-            "url": f"http://127.0.0.1:3000/{self.nature}/{self.id}"
+            "url": f"http://127.0.0.1:3000/{self.nature}s/{self.id}"
         }
 
 class Planet(Item):
@@ -111,4 +121,9 @@ class Planet(Item):
     }
 
 class Starship(Item):
-    pass
+    id = db.Column(db.Integer, db.ForeignKey('item.id'), primary_key=True)
+    
+    __mapper_args__ = {
+        'polymorphic_identity': 'starship'
+    }
+
